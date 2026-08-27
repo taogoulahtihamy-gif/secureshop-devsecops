@@ -1,4 +1,3 @@
-```yaml
 name: SecureShop CI
 
 permissions:
@@ -9,7 +8,6 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
@@ -66,4 +64,3 @@ jobs:
         run: |
           docker push ghcr.io/${{ github.repository_owner }}/secureshop:latest
           docker push ghcr.io/${{ github.repository_owner }}/secureshop:${{ github.sha }}
-```
