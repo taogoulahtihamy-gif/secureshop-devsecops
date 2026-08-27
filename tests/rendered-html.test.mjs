@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-
-test("renders development preview metadata", async () => {
+test("renders SecureShop HTML", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+
   const { default: worker } = await import(workerUrl.href);
 
   const response = await worker.fetch(
@@ -21,13 +19,18 @@ test("renders development preview metadata", async () => {
     {
       waitUntil() {},
       passThroughOnException() {},
-    },
+    }
   );
 
   assert.equal(response.status, 200);
+
   assert.match(
     response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
+    /text\/html/i
   );
-  assert.match(await response.text(), developmentPreviewMeta);
+
+  const html = await response.text();
+
+  assert.match(html, /SecureShop/i);
+  assert.match(html, /Connectez-vous/i);
 });

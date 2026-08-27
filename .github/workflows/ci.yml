@@ -1,0 +1,42 @@
+name: SecureShop CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lancer ESLint
+        run: npm run lint
+
+      - name: Lancer les tests unitaires
+        run: npm run test:unit
+
+      - name: Lancer le test de build
+        run: npm test
+
+      - name: Audit des dépendances
+        run: npm audit --audit-level=critical
+        continue-on-error: true
+
+      - name: Construire l'image Docker
+        run: docker build -t secureshop:${{ github.sha }} .
