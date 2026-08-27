@@ -1,9 +1,15 @@
+```yaml
 name: SecureShop CI
+
+permissions:
+  contents: read
+  packages: write
 
 on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
@@ -13,30 +19,51 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout du code
+      - name: Récupération du code
         uses: actions/checkout@v4
 
-      - name: Installer Node.js
+      - name: Installation de Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
           cache: npm
 
-      - name: Installer les dépendances
+      - name: Installation des dépendances
         run: npm ci
 
-      - name: Lancer ESLint
+      - name: Analyse ESLint
         run: npm run lint
 
-      - name: Lancer les tests unitaires
+      - name: Tests unitaires
         run: npm run test:unit
 
-      - name: Lancer le test de build
+      - name: Test du build et rendu HTML
         run: npm test
 
       - name: Audit des dépendances
         run: npm audit --audit-level=critical
         continue-on-error: true
 
-      - name: Construire l'image Docker
+      - name: Construction de l'image Docker
         run: docker build -t secureshop:${{ github.sha }} .
+
+      - name: Connexion à GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag de l'image Docker
+        if: github.event_name == 'push'
+        run: |
+          docker tag secureshop:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/secureshop:latest
+          docker tag secureshop:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/secureshop:${{ github.sha }}
+
+      - name: Publication de l'image Docker
+        if: github.event_name == 'push'
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/secureshop:latest
+          docker push ghcr.io/${{ github.repository_owner }}/secureshop:${{ github.sha }}
+```
