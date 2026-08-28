@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Ignorer les artefacts générés"
+paths = [
+  '''(^|/)dist/.*''',
+  '''(^|/)gitleaks-report\.json$'''
+]
