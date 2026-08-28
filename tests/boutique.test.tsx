@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -121,6 +121,19 @@ describe("Boutique SecureShop", () => {
     expect(screen.queryByText("Sac Alpha")).not.toBeInTheDocument();
     expect(screen.queryByText("Bijou Gamma")).not.toBeInTheDocument();
 
+    expect(screen.getByText("1 produits")).toBeInTheDocument();
+  });
+
+  it("filtre les produits selon le prix maximum", async () => {
+    render(<BoutiquePage />);
+
+    fireEvent.change(screen.getByRole("slider", { name: /prix maximum/i }), {
+      target: { value: "100" },
+    });
+
+    expect(screen.getByText("Sac Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Téléphone Beta")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bijou Gamma")).not.toBeInTheDocument();
     expect(screen.getByText("1 produits")).toBeInTheDocument();
   });
 });
