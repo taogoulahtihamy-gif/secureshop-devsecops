@@ -1,8 +1,4 @@
-name: SecureShop CI
-
-permissions:
-  contents: read
-  packages: write
+name: SecureShop DevSecOps CI/CD
 
 on:
   push:
@@ -12,55 +8,92 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
 jobs:
-  ci:
+  ci-security:
+    name: Tests et securite
     runs-on: ubuntu-latest
 
     steps:
-      - name: Récupération du code
+      - name: Recuperation du code
         uses: actions/checkout@v4
 
       - name: Installation de Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.13.0
+          node-version: "22.22.2"
           cache: npm
 
-      - name: Installation des dépendances
+      - name: Installation des dependances
         run: npm ci
 
       - name: Analyse ESLint
         run: npm run lint
 
-      - name: Tests unitaires
+      - name: Tests automatises
         run: npm run test:unit
 
-      - name: Test du build et rendu HTML
+      - name: Test build et rendu
         run: npm test
 
-      - name: Audit des dépendances
+      - name: Audit npm
         run: npm audit --audit-level=critical
-        continue-on-error: true
+
+      - name: Recherche de secrets avec Gitleaks
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest \
+            detect \
+            --source=/repo \
+            --config=/repo/.gitleaks.toml \
+            --redact
 
       - name: Construction de l'image Docker
-        run: docker build -t secureshop:${{ github.sha }} .
+        run: docker build -t secureshop:ci .
 
-      - name: Connexion à GitHub Container Registry
-        if: github.event_name == 'push'
+      - name: Scan Trivy complet
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 \
+            secureshop:ci
+
+      - name: Blocage des vulnerabilites critiques
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --severity CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            secureshop:ci
+
+      - name: Connexion a GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Tag de l'image Docker
-        if: github.event_name == 'push'
+      - name: Preparation des tags Docker
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker tag secureshop:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/secureshop:latest
-          docker tag secureshop:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/secureshop:${{ github.sha }}
+          docker tag secureshop:ci "${IMAGE_NAME}:latest"
+          docker tag secureshop:ci "${IMAGE_NAME}:${GITHUB_SHA}"
 
-      - name: Publication de l'image Docker
-        if: github.event_name == 'push'
+      - name: Publication dans GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/secureshop:latest
-          docker push ghcr.io/${{ github.repository_owner }}/secureshop:${{ github.sha }}
+          docker push "${IMAGE_NAME}:latest"
+          docker push "${IMAGE_NAME}:${GITHUB_SHA}"
